@@ -1753,13 +1753,30 @@ impl<W: LayoutElement> Workspace<W> {
         self.scrolling.start_open_animation(id) || self.floating.start_open_animation(id)
     }
 
+    fn floating_hit(
+        tile: &Tile<W>,
+        tile_pos: Point<f64, Logical>,
+        pos: Point<f64, Logical>,
+    ) -> Option<(&W, HitType)> {
+        let (window, hit) = HitType::hit_tile(tile, tile_pos, pos)?;
+        if matches!(hit, HitType::Activate { .. }) {
+            // Let input-region holes inside floating content reach the window
+            // below, while preserving activation on its server-side frame.
+            let point = pos - tile_pos - tile.bob_offset() - tile.window_loc();
+            if Rectangle::from_size(tile.window_size()).contains(point) {
+                return None;
+            }
+        }
+        Some((window, hit))
+    }
+
     pub fn window_under(&self, pos: Point<f64, Logical>) -> Option<(&W, HitType)> {
         // This logic is consistent with tiles_with_render_positions().
         if self.is_floating_visible() {
             if let Some(rv) = self
                 .floating
                 .tiles_with_render_positions()
-                .find_map(|(tile, tile_pos)| HitType::hit_tile(tile, tile_pos, pos))
+                .find_map(|(tile, tile_pos)| Self::floating_hit(tile, tile_pos, pos))
             {
                 return Some(rv);
             }
@@ -1779,7 +1796,12 @@ impl<W: LayoutElement> Workspace<W> {
 
                 let pos_within_tile = pos - tile_pos;
 
-                if tile.hit(pos_within_tile).is_some() {
+                let hit = if self.floating.has_window(tile.window().id()) {
+                    Self::floating_hit(tile, tile_pos, pos).map(|(_, hit)| hit)
+                } else {
+                    tile.hit(pos_within_tile)
+                };
+                if hit.is_some() {
                     let size = tile.tile_size().to_f64();
 
                     let mut edges = ResizeEdge::empty();

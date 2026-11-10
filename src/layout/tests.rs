@@ -28,6 +28,7 @@ struct TestWindowInner {
     parent_id: Cell<Option<usize>>,
     bbox: Cell<Rectangle<i32, Logical>>,
     initial_bbox: Rectangle<i32, Logical>,
+    input_region: Cell<Option<Rectangle<i32, Logical>>>,
     requested_size: Cell<Option<Size<i32, Logical>>>,
     // Emulates the window ignoring the compositor-provided size.
     forced_size: Cell<Option<Size<i32, Logical>>>,
@@ -81,6 +82,7 @@ impl TestWindow {
             parent_id: Cell::new(params.parent_id),
             bbox: Cell::new(params.bbox),
             initial_bbox: params.bbox,
+            input_region: Cell::new(None),
             requested_size: Cell::new(None),
             forced_size: Cell::new(None),
             min_size: params.min_max_size.0,
@@ -164,8 +166,11 @@ impl LayoutElement for TestWindow {
         (0, 0).into()
     }
 
-    fn is_in_input_region(&self, _point: Point<f64, Logical>) -> bool {
-        false
+    fn is_in_input_region(&self, point: Point<f64, Logical>) -> bool {
+        self.0
+            .input_region
+            .get()
+            .is_some_and(|region| region.to_f64().contains(point))
     }
 
     fn request_size(
@@ -1642,6 +1647,135 @@ fn check_ops(ops: impl IntoIterator<Item = Op>) -> Layout<TestWindow> {
     let mut layout = Layout::default();
     check_ops_on_layout(&mut layout, ops);
     layout
+}
+
+#[test]
+fn floating_click_through_input_region_hole() {
+    let mut options = Options::default();
+    options.layout.border.off = false;
+    options.layout.border.width = 4.;
+    let layout = check_ops_with_options(
+        options,
+        [
+            Op::AddOutput(1),
+            Op::AddWindow {
+                params: TestWindowParams {
+                    is_floating: true,
+                    ..TestWindowParams::new(1)
+                },
+            },
+            Op::AddWindow {
+                params: TestWindowParams {
+                    is_floating: true,
+                    ..TestWindowParams::new(2)
+                },
+            },
+        ],
+    );
+    let workspace = layout.active_workspace().unwrap();
+    for window in workspace.windows() {
+        let region = if window.0.id == 2 {
+            Rectangle::new((40, 40).into(), (20, 20).into())
+        } else {
+            Rectangle::from_size((100, 200).into())
+        };
+        window.0.input_region.set(Some(region));
+    }
+    let (overlay, tile_pos, _) = workspace
+        .tiles_with_render_positions()
+        .find(|(tile, _, _)| tile.window().0.id == 2)
+        .unwrap();
+    let origin = tile_pos + overlay.window_loc();
+
+    // Controls within the overlay remain interactive.
+    let (window, hit) = workspace
+        .window_under(origin + Point::from((45., 45.)))
+        .unwrap();
+    assert_eq!(*window.id(), 2);
+    assert!(matches!(hit, HitType::Input { .. }));
+
+    // An interior transparent hole must reach the window below, not merely
+    // focus the overlay's much larger transparent canvas.
+    let (window, hit) = workspace
+        .window_under(origin + Point::from((10., 10.)))
+        .unwrap();
+    assert_eq!(*window.id(), 1);
+    assert!(matches!(hit, HitType::Input { .. }));
+
+    // The server-side frame remains a valid activation target.
+    let (window, hit) = workspace
+        .window_under(origin + Point::from((-2., 10.)))
+        .unwrap();
+    assert_eq!(*window.id(), 2);
+    assert!(matches!(hit, HitType::Activate { .. }));
+}
+
+#[test]
+fn tiled_input_region_hole_still_activates_tile() {
+    let layout = check_ops([
+        Op::AddOutput(1),
+        Op::AddWindow {
+            params: TestWindowParams::new(1),
+        },
+    ]);
+    let workspace = layout.active_workspace().unwrap();
+    let (tile, tile_pos, _) = workspace.tiles_with_render_positions().next().unwrap();
+    let origin = tile_pos + tile.window_loc();
+    let (window, hit) = workspace
+        .window_under(origin + Point::from((10., 10.)))
+        .unwrap();
+    assert_eq!(*window.id(), 1);
+    assert!(matches!(hit, HitType::Activate { .. }));
+}
+
+#[test]
+fn floating_click_through_resize_edges_match_target() {
+    let mut layout = check_ops([
+        Op::AddOutput(1),
+        Op::AddWindow {
+            params: TestWindowParams {
+                is_floating: true,
+                bbox: Rectangle::from_size((400, 400).into()),
+                ..TestWindowParams::new(1)
+            },
+        },
+        Op::AddWindow {
+            params: TestWindowParams {
+                is_floating: true,
+                ..TestWindowParams::new(2)
+            },
+        },
+    ]);
+    layout.move_floating_window(
+        Some(&1),
+        PositionChange::SetFixed(100.),
+        PositionChange::SetFixed(100.),
+        false,
+    );
+    layout.move_floating_window(
+        Some(&2),
+        PositionChange::SetFixed(250.),
+        PositionChange::SetFixed(200.),
+        false,
+    );
+    let workspace = layout.active_workspace().unwrap();
+    for window in workspace.windows() {
+        window.0.input_region.set(Some(if window.0.id == 2 {
+            Rectangle::new((40, 40).into(), (20, 20).into())
+        } else {
+            Rectangle::from_size((400, 400).into())
+        }));
+    }
+    let (overlay, tile_pos, _) = workspace
+        .tiles_with_render_positions()
+        .find(|(tile, _, _)| tile.window().0.id == 2)
+        .unwrap();
+    let point = tile_pos + overlay.window_loc() + Point::from((10., 10.));
+    let (window, _) = workspace.window_under(point).unwrap();
+    assert_eq!(*window.id(), 1);
+    // Relative to the lower window, this is (160, 110): top-center.
+    // Relative to the overlay it is (10, 10): top-left.
+    assert_eq!(workspace.resize_edges_under(point), Some(ResizeEdge::TOP));
 }
 
 #[track_caller]
