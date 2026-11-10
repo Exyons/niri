@@ -2167,6 +2167,23 @@ impl State {
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
+            Action::SnapFloatingWindow(position)
+            | Action::SnapFloatingWindowById { position, .. } => {
+                let window = if let Action::SnapFloatingWindowById { id, .. } = action {
+                    let Some((_, mapped)) =
+                        self.niri.layout.windows().find(|(_, m)| m.id().get() == id)
+                    else {
+                        return;
+                    };
+                    Some(mapped.window.clone())
+                } else {
+                    None
+                };
+                self.niri
+                    .layout
+                    .snap_floating_window(window.as_ref(), position);
+                self.niri.queue_redraw_all();
+            }
             Action::MoveFloatingWindowById { id, x, y } => {
                 let window = if let Some(id) = id {
                     let window = self.niri.layout.windows().find(|(_, m)| m.id().get() == id);

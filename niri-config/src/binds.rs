@@ -7,7 +7,8 @@ use bitflags::bitflags;
 use knuffel::errors::DecodeError;
 use miette::miette;
 use niri_ipc::{
-    ColumnDisplay, LayoutSwitchTarget, PositionChange, SizeChange, WorkspaceReferenceArg,
+    ColumnDisplay, FloatingWindowAnchor, LayoutSwitchTarget, PositionChange, SizeChange,
+    WorkspaceReferenceArg,
 };
 use smithay::input::keyboard::keysyms::KEY_NoSymbol;
 use smithay::input::keyboard::xkb::{keysym_from_name, KEYSYM_CASE_INSENSITIVE, KEYSYM_NO_FLAGS};
@@ -343,6 +344,12 @@ pub enum Action {
     FocusFloating,
     FocusTiling,
     SwitchFocusBetweenFloatingAndTiling,
+    SnapFloatingWindow(#[knuffel(argument, str)] FloatingWindowAnchor),
+    #[knuffel(skip)]
+    SnapFloatingWindowById {
+        id: u64,
+        position: FloatingWindowAnchor,
+    },
     #[knuffel(skip)]
     MoveFloatingWindowById {
         id: Option<u64>,
@@ -678,6 +685,13 @@ impl From<niri_ipc::Action> for Action {
             niri_ipc::Action::SwitchFocusBetweenFloatingAndTiling {} => {
                 Self::SwitchFocusBetweenFloatingAndTiling
             }
+            niri_ipc::Action::SnapFloatingWindow { id: None, position } => {
+                Self::SnapFloatingWindow(position)
+            }
+            niri_ipc::Action::SnapFloatingWindow {
+                id: Some(id),
+                position,
+            } => Self::SnapFloatingWindowById { id, position },
             niri_ipc::Action::MoveFloatingWindow { id, x, y } => {
                 Self::MoveFloatingWindowById { id, x, y }
             }

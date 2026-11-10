@@ -6,7 +6,7 @@ use niri_config::utils::MergeWith as _;
 use niri_config::{
     CenterFocusedColumn, CornerRadius, OutputName, PresetSize, Workspace as WorkspaceConfig,
 };
-use niri_ipc::{ColumnDisplay, PositionChange, SizeChange, WindowLayout};
+use niri_ipc::{ColumnDisplay, FloatingWindowAnchor, PositionChange, SizeChange, WindowLayout};
 use smithay::backend::renderer::element::Kind;
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::desktop::{layer_map_for_output, Window};
@@ -1482,6 +1482,14 @@ impl<W: LayoutElement> Workspace<W> {
         } else {
             FloatingActive::Yes
         };
+    }
+
+    pub fn snap_floating_window(&mut self, id: Option<&W::Id>, position: FloatingWindowAnchor) {
+        if id.map_or(self.floating_is_active.get(), |id| {
+            self.floating.has_window(id)
+        }) {
+            self.floating.snap_window(id, position);
+        }
     }
 
     pub fn move_floating_window(

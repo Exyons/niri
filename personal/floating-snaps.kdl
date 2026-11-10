@@ -1,0 +1,13 @@
+// Works with the personal compositor after logging back in.
+// Number row arranged like a numpad: 7 8 9 / 4 5 6 / 1 2 3.
+binds {
+    Mod+Alt+1 hotkey-overlay-title="Snap floating window: bottom-left" { spawn-sh r#"exec "$HOME/.local/libexec/niri-personal" msg action snap-floating-window bottom-left"#; }
+    Mod+Alt+2 hotkey-overlay-title="Snap floating window: bottom" { spawn-sh r#"exec "$HOME/.local/libexec/niri-personal" msg action snap-floating-window bottom"#; }
+    Mod+Alt+3 hotkey-overlay-title="Snap floating window: bottom-right" { spawn-sh r#"exec "$HOME/.local/libexec/niri-personal" msg action snap-floating-window bottom-right"#; }
+    Mod+Alt+4 hotkey-overlay-title="Snap floating window: left" { spawn-sh r#"exec "$HOME/.local/libexec/niri-personal" msg action snap-floating-window left"#; }
+    Mod+Alt+5 hotkey-overlay-title="Snap floating window: center" { spawn-sh r#"exec "$HOME/.local/libexec/niri-personal" msg action snap-floating-window center"#; }
+    Mod+Alt+6 hotkey-overlay-title="Snap floating window: right" { spawn-sh r#"exec "$HOME/.local/libexec/niri-personal" msg action snap-floating-window right"#; }
+    Mod+Alt+7 hotkey-overlay-title="Snap floating window: top-left" { spawn-sh r#"exec "$HOME/.local/libexec/niri-personal" msg action snap-floating-window top-left"#; }
+    Mod+Alt+8 hotkey-overlay-title="Snap floating window: top" { spawn-sh r#"exec "$HOME/.local/libexec/niri-personal" msg action snap-floating-window top"#; }
+    Mod+Alt+9 hotkey-overlay-title="Snap floating window: top-right" { spawn-sh r#"exec "$HOME/.local/libexec/niri-personal" msg action snap-floating-window top-right"#; }
+}

@@ -41,7 +41,7 @@ use niri_config::utils::MergeWith as _;
 use niri_config::{
     Config, CornerRadius, LayoutPart, PresetSize, Workspace as WorkspaceConfig, WorkspaceReference,
 };
-use niri_ipc::{ColumnDisplay, PositionChange, SizeChange, WindowLayout};
+use niri_ipc::{ColumnDisplay, FloatingWindowAnchor, PositionChange, SizeChange, WindowLayout};
 use scrolling::{Column, ColumnWidth};
 use smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement;
 use smithay::backend::renderer::element::utils::RescaleRenderElement;
@@ -3237,6 +3237,22 @@ impl<W: LayoutElement> Layout<W> {
             return;
         };
         workspace.switch_focus_floating_tiling();
+    }
+
+    pub fn snap_floating_window(&mut self, id: Option<&W::Id>, position: FloatingWindowAnchor) {
+        if let Some(InteractiveMoveState::Moving(move_)) = &self.interactive_move {
+            if id.is_none() || id == Some(move_.tile.window().id()) {
+                return;
+            }
+        }
+        let workspace = if let Some(id) = id {
+            self.workspaces_mut().find(|ws| ws.has_window(id))
+        } else {
+            self.active_workspace_mut()
+        };
+        if let Some(workspace) = workspace {
+            workspace.snap_floating_window(id, position);
+        }
     }
 
     pub fn move_floating_window(

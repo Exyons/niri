@@ -2,3 +2,5 @@
 /result
 
 .idea
+# Local build/verification logs.
+/*.log

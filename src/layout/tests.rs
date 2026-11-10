@@ -1650,6 +1650,94 @@ fn check_ops(ops: impl IntoIterator<Item = Op>) -> Layout<TestWindow> {
 }
 
 #[test]
+fn snap_floating_window_uses_working_area_and_preserves_tiling() {
+    use niri_ipc::FloatingWindowAnchor::*;
+    for scale in [1., 1.5] {
+        let mut options = Options::default();
+        options.layout.struts.top = FloatOrInt(40.);
+        options.layout.struts.left = FloatOrInt(24.);
+        let mut layout = check_ops_with_options(
+            options,
+            [
+                Op::AddScaledOutput {
+                    id: 1,
+                    scale,
+                    layout_config: None,
+                },
+                Op::AddWindow {
+                    params: TestWindowParams {
+                        is_floating: true,
+                        ..TestWindowParams::new(1)
+                    },
+                },
+                Op::AddWindow {
+                    params: TestWindowParams::new(2),
+                },
+            ],
+        );
+        Op::CompleteAnimations.apply(&mut layout);
+        let tiled_before = layout
+            .active_workspace()
+            .unwrap()
+            .tiles_with_render_positions()
+            .find(|(tile, _, _)| *tile.window().id() == 2)
+            .map(|(_, pos, _)| pos)
+            .unwrap();
+        // A focused tiled window must stay tiled and unmoved.
+        layout.snap_floating_window(None, BottomRight);
+        for (position, x, y) in [
+            (TopLeft, 0., 0.),
+            (Top, 0.5, 0.),
+            (TopRight, 1., 0.),
+            (Left, 0., 0.5),
+            (Center, 0.5, 0.5),
+            (Right, 1., 0.5),
+            (BottomLeft, 0., 1.),
+            (Bottom, 0.5, 1.),
+            (BottomRight, 1., 1.),
+        ] {
+            // Explicit ID also works while focus stays on a tiled window.
+            layout.snap_floating_window(Some(&1), position);
+            Op::CompleteAnimations.apply(&mut layout);
+            assert_eq!(
+                *layout
+                    .active_workspace()
+                    .unwrap()
+                    .active_window()
+                    .unwrap()
+                    .id(),
+                2
+            );
+            let ws = layout.active_workspace().unwrap();
+            let area = ws.floating().working_area();
+            let (tile, pos, _) = ws
+                .tiles_with_render_positions()
+                .find(|(tile, _, _)| *tile.window().id() == 1)
+                .unwrap();
+            let expected = area.loc
+                + Point::from((
+                    (area.size.w - tile.tile_size().w).max(0.) * x,
+                    (area.size.h - tile.tile_size().h).max(0.) * y,
+                ));
+            assert!(
+                (pos.x - expected.x).abs() <= 1.,
+                "{position:?}: {pos:?} vs {expected:?}"
+            );
+            assert!(
+                (pos.y - expected.y).abs() <= 1.,
+                "{position:?}: {pos:?} vs {expected:?}"
+            );
+            let tiled_after = ws
+                .tiles_with_render_positions()
+                .find(|(tile, _, _)| *tile.window().id() == 2)
+                .map(|(_, pos, _)| pos)
+                .unwrap();
+            assert_eq!(tiled_before, tiled_after);
+        }
+        layout.verify_invariants();
+    }
+}
+#[test]
 fn floating_click_through_input_region_hole() {
     let mut options = Options::default();
     options.layout.border.off = false;

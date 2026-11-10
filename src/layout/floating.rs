@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use niri_config::utils::MergeWith as _;
 use niri_config::{PresetSize, RelativeTo};
-use niri_ipc::{PositionChange, SizeChange, WindowLayout};
+use niri_ipc::{FloatingWindowAnchor, PositionChange, SizeChange, WindowLayout};
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::utils::{Logical, Point, Rectangle, Scale, Serial, Size};
 
@@ -999,6 +999,32 @@ impl<W: LayoutElement> FloatingSpace<W> {
         }
 
         self.move_to(idx, pos, animate);
+    }
+
+    pub fn snap_window(&mut self, id: Option<&W::Id>, position: FloatingWindowAnchor) {
+        let Some(id) = id.or(self.active_window_id.as_ref()) else {
+            return;
+        };
+        let idx = self.idx_of(id).unwrap();
+        use FloatingWindowAnchor::*;
+        let x = match position {
+            TopLeft | Left | BottomLeft => 0.,
+            Top | Center | Bottom => 0.5,
+            _ => 1.,
+        };
+        let y = match position {
+            TopLeft | Top | TopRight => 0.,
+            Left | Center | Right => 0.5,
+            _ => 1.,
+        };
+        // Keep the top-left accessible when an app insists on an oversized canvas.
+        let size = self.data[idx].size;
+        let pos = self.working_area.loc
+            + Point::from((
+                (self.working_area.size.w - size.w).max(0.) * x,
+                (self.working_area.size.h - size.h).max(0.) * y,
+            ));
+        self.move_to(idx, pos, true);
     }
 
     pub fn center_window(&mut self, id: Option<&W::Id>) {

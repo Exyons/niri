@@ -837,6 +837,15 @@ pub enum Action {
     FocusTiling {},
     /// Toggles the focus between the floating and the tiling layout.
     SwitchFocusBetweenFloatingAndTiling {},
+    /// Snap a floating window to an edge, corner, or center of its working area.
+    SnapFloatingWindow {
+        /// Window to move; defaults to the focused window. Tiled windows are ignored.
+        #[cfg_attr(feature = "clap", arg(long))]
+        id: Option<u64>,
+        /// Anchor within the output's working area.
+        #[cfg_attr(feature = "clap", arg(value_enum))]
+        position: FloatingWindowAnchor,
+    },
     /// Move a floating window on screen.
     #[cfg_attr(feature = "clap", clap(about = "Move the floating window on screen"))]
     MoveFloatingWindow {
@@ -1816,6 +1825,50 @@ impl FromStr for PositionChange {
                     None => Err("value is missing"),
                 }
             }
+        }
+    }
+}
+
+/// Alignment of a floating window inside the output working area.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum FloatingWindowAnchor {
+    /// Align to top-left.
+    TopLeft,
+    /// Align to top.
+    Top,
+    /// Align to top-right.
+    TopRight,
+    /// Align to left.
+    Left,
+    /// Align to center.
+    Center,
+    /// Align to right.
+    Right,
+    /// Align to bottom-left.
+    BottomLeft,
+    /// Align to bottom.
+    Bottom,
+    /// Align to bottom-right.
+    BottomRight,
+}
+
+impl FromStr for FloatingWindowAnchor {
+    type Err = &'static str;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "top-left" => Ok(Self::TopLeft),
+            "top" => Ok(Self::Top),
+            "top-right" => Ok(Self::TopRight),
+            "left" => Ok(Self::Left),
+            "center" => Ok(Self::Center),
+            "right" => Ok(Self::Right),
+            "bottom-left" => Ok(Self::BottomLeft),
+            "bottom" => Ok(Self::Bottom),
+            "bottom-right" => Ok(Self::BottomRight),
+            _ => Err("expected top-left, top, top-right, left, center, right, bottom-left, bottom, or bottom-right"),
         }
     }
 }
