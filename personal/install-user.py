@@ -50,7 +50,7 @@ if include not in text:
     with tempfile.NamedTemporaryFile(mode="w", prefix=".personal-candidate-", dir=config.parent, delete=False) as candidate:
         candidate.write(candidate_text)
         candidate_path = Path(candidate.name)
-    subprocess.run([str(binary), "--config", str(candidate_path), "validate"], check=True)
+    subprocess.run([str(binary), "validate", "--config", str(candidate_path)], check=True)
     backup(config)
     shutil.copymode(config, candidate_path)
     os.replace(candidate_path, config)
