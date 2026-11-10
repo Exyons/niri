@@ -55,3 +55,19 @@ Only adopt new upstream main commits deliberately if a feature/fix is needed bef
 ## Roll back
 
 Rename `~/.config/systemd/user/niri.service.d/95-personal.conf` to a filename not ending in `.conf`, run `systemctl --user daemon-reload`, save work, then log out/in. With the earlier `90-pet-input-fix.conf` still enabled, this returns to the previously working custom build. To return all the way to the distro build, also rename that earlier override. Remove the personal-floating-snaps include from the niri config if returning to a compositor that lacks the new action. All installer-created config backups and versioned binaries are retained.
+
+
+## OpenWhispr across workspaces
+
+`openwhispr-sticky.py` is an optional IPC helper for an OpenWhispr Voice Recorder overlay. It subscribes to niri events, reads the current focused workspace, and moves only windows matching app-id `open-whispr`, title `Voice Recorder`, and floating state. Workspace IDs remain stable as workspace indices change. It leaves keyboard/workspace focus alone (`focus=false`) and leaves settings and other applications alone. Niri retains the floating window position when moving between workspaces. A brief movement during workspace transitions can occur because this follows the active workspace through IPC.
+
+Enable it without rebuilding/restarting niri:
+
+```sh
+install -Dm755 personal/openwhispr-sticky.py ~/.local/libexec/openwhispr-sticky.py
+install -Dm644 personal/openwhispr-sticky.service ~/.config/systemd/user/openwhispr-sticky.service
+systemctl --user daemon-reload
+systemctl --user enable --now openwhispr-sticky.service
+```
+
+The niri session must export `NIRI_SOCKET` to the systemd user manager, as the standard niri integration does. The helper reconnects after socket errors, starts with niri, and stops with that session. Disable it with `systemctl --user disable --now openwhispr-sticky.service`. Inspect it with `journalctl --user -u openwhispr-sticky.service`. If updating the helper, copy the new script and restart only this service.

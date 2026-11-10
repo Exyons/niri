@@ -1,0 +1,13 @@
+[Unit]
+Description=Keep OpenWhispr on the focused niri workspace
+After=niri.service
+PartOf=niri.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.local/libexec/openwhispr-sticky.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=niri.service
